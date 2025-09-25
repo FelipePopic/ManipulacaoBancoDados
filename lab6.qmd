@@ -1,0 +1,139 @@
+---
+title: "Laboratório 6 - SQLite no R"
+author: "Felipe Pedroso Popic"
+format: pdf  
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(RSQLite)
+library(DBI)
+library(dplyr)
+```
+
+```{r}
+fname <- file.path("disco.db")   
+conn <- dbConnect(SQLite(), fname)
+```
+
+```{r}
+dbListTables(conn)
+```
+
+```{r}
+dbListFields(conn, "customers")
+```
+
+```{r}
+dbGetQuery(conn, "SELECT COUNT(*) AS total_clientes FROM customers;")
+```
+
+```{r}
+dbGetQuery(conn, "SELECT COUNT(DISTINCT Country) AS total_paises FROM customers;")
+```
+
+```{r}
+dbGetQuery(conn, "
+  SELECT Country, COUNT(*) AS num_clientes
+  FROM customers
+  GROUP BY Country
+  ORDER BY num_clientes DESC;
+")
+```
+
+```{r}
+dbGetQuery(conn, "
+  SELECT Country, COUNT(*) AS num_clientes
+  FROM customers
+  GROUP BY Country
+  ORDER BY num_clientes DESC
+  LIMIT 5;
+")
+```
+
+```{r}
+dbGetQuery(conn, "
+  SELECT DISTINCT Country
+  FROM customers
+  WHERE LENGTH(Country) = 6;
+")
+```
+
+```{r}
+dbGetQuery(conn, "
+  SELECT DISTINCT t.Name AS Musica
+  FROM customers c
+  JOIN invoices i ON c.CustomerId = i.CustomerId
+  JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+  JOIN tracks t ON ii.TrackId = t.TrackId
+  WHERE c.Country = 'Brazil';
+")
+```
+
+```{r}
+tab_album_pais <- dbGetQuery(conn, "
+  WITH AlbumCount AS (
+    SELECT 
+      c.Country,
+      al.Title AS Album,
+      COUNT(*) AS qtd
+    FROM customers c
+    JOIN invoices i ON c.CustomerId = i.CustomerId
+    JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+    JOIN tracks t ON ii.TrackId = t.TrackId
+    JOIN albums al ON t.AlbumId = al.AlbumId
+    GROUP BY c.Country, al.Title
+  ),
+  Ranked AS (
+    SELECT 
+      Country,
+      Album,
+      qtd,
+      ROW_NUMBER() OVER (PARTITION BY Country ORDER BY qtd DESC) AS rank
+    FROM AlbumCount
+  )
+  SELECT Country, Album, qtd
+  FROM Ranked
+  WHERE rank = 1
+  ORDER BY Country;
+")
+
+tab_album_pais
+```
+
+```{r}
+tab_artista_pais <- dbGetQuery(conn, "
+  WITH ArtistCount AS (
+    SELECT 
+      c.Country,
+      ar.Name AS Artist,
+      COUNT(*) AS qtd
+    FROM customers c
+    JOIN invoices i ON c.CustomerId = i.CustomerId
+    JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+    JOIN tracks t ON ii.TrackId = t.TrackId
+    JOIN albums al ON t.AlbumId = al.AlbumId
+    JOIN artists ar ON al.ArtistId = ar.ArtistId
+    GROUP BY c.Country, ar.Name
+  ),
+  Ranked AS (
+    SELECT 
+      Country,
+      Artist,
+      qtd,
+      ROW_NUMBER() OVER (PARTITION BY Country ORDER BY qtd DESC) AS rank
+    FROM ArtistCount
+  )
+  SELECT Country, Artist, qtd
+  FROM Ranked
+  WHERE rank = 1
+  ORDER BY Country;
+")
+
+tab_artista_pais
+```
+
+```{r}
+dbDisconnect(conn)
+```
+
