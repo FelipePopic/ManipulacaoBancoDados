@@ -1,0 +1,91 @@
+---
+title: "lab7"
+author: "Felipe Pedroso Popic"
+ra: "277151"
+---
+
+
+```{r}
+library(RSQLite)
+
+# conectar ao banco
+conn <- dbConnect(SQLite(), "database.sqlite3")
+
+# listar tabelas disponíveis
+dbListTables(conn)
+```
+
+```{r}
+query_professores <- "
+SELECT DISTINCT i.name AS professor
+FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections s ON t.section_uuid = s.uuid
+JOIN course_offerings co ON s.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT';
+"
+
+professores <- dbGetQuery(conn, query_professores)
+cat("Quantidade de professores de Estatística:", nrow(professores), "\n")
+```
+
+```{r}
+query_gpa <- "
+SELECT 
+    co.uuid AS course_offering_uuid,
+    s.number AS section_number,
+    i.name AS professor,
+    c.number AS disciplina,
+    (
+        4.0 * gd.a_count +
+        3.5 * gd.ab_count +
+        3.0 * gd.b_count +
+        2.5 * gd.bc_count +
+        2.0 * gd.c_count +
+        1.0 * gd.d_count +
+        0.0 * gd.f_count
+    ) * 1.0 / NULLIF(
+        gd.a_count + gd.ab_count + gd.b_count + gd.bc_count + gd.c_count +
+        gd.d_count + gd.f_count, 0
+    ) AS gpa
+FROM grade_distributions gd
+JOIN course_offerings co ON gd.course_offering_uuid = co.uuid
+JOIN courses c ON co.course_uuid = c.uuid
+JOIN sections s ON gd.course_offering_uuid = s.course_offering_uuid 
+                 AND gd.section_number = s.number
+JOIN teachings t ON s.uuid = t.section_uuid
+JOIN instructors i ON t.instructor_id = i.id
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT';
+"
+
+gpa_por_oferecimento <- dbGetQuery(conn, query_gpa)
+```
+
+```{r}
+gpa_prof <- aggregate(gpa ~ professor, data = gpa_por_oferecimento, mean, na.rm = TRUE)
+
+prof_dificil <- gpa_prof[which.min(gpa_prof$gpa), ]
+prof_facil   <- gpa_prof[which.max(gpa_prof$gpa), ]
+
+cat("Professor mais difícil:", prof_dificil$professor, "(GPA médio:", prof_dificil$gpa, ")\n")
+cat("Professor mais fácil:", prof_facil$professor, "(GPA médio:", prof_facil$gpa, ")\n")
+```
+
+```{r}
+gpa_disc <- aggregate(gpa ~ disciplina, data = gpa_por_oferecimento, mean, na.rm = TRUE)
+
+disc_dificil <- gpa_disc[which.min(gpa_disc$gpa), ]
+disc_facil   <- gpa_disc[which.max(gpa_disc$gpa), ]
+
+cat("Disciplina mais difícil:", disc_dificil$disciplina, "(GPA médio:", disc_dificil$gpa, ")\n")
+cat("Disciplina mais fácil:", disc_facil$disciplina, "(GPA médio:", disc_facil$gpa, ")\n")
+```
+
+```{r}
+dbDisconnect(conn)
+```
+
