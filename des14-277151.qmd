@@ -6,11 +6,10 @@ format:
 editor: visual
 jupyter: python3
 execute:
-  echo: true       # mostre o código; mude para false se quiser esconder
+  echo: true       
   warning: false
   message: false
   cache: false
-  # dir: "."       # defina um diretório de execução, se precisar
 ---
 
 ```{python}
@@ -142,7 +141,6 @@ plot07 = (
     )
 )
 plot07.save("grafico07.png", dpi=600)
-"Salvo como grafico07.png"
 ```
 
 ```{python}
@@ -154,13 +152,10 @@ datetime.now()
 ```{r}
 library(reticulate)
 
-# Declarar dependência PyYAML
 py_require("pyyaml")
 
-# Mostrar a configuração Python atual (deve incluir path, versão, etc)
 print(py_config())
 
-# Tentar importar o módulo yaml no Python via reticulate
 py_run_string("import yaml")
 py_require("pyyaml")
 
